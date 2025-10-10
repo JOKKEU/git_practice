@@ -227,6 +227,134 @@ void choice_one(struct NODE*** p_weighted_graph, char*** p_unique_nodes, size_t*
 }
 
 
+int generate_random_graph(struct NODE*** p_weighted_graph, char*** p_unique_nodes, size_t* edge_count, size_t* vertex_count)
+{
+	if (*p_weighted_graph) free_graph(*p_weighted_graph, *edge_count);
+	if (*p_unique_nodes) free_unique_nodes(*p_unique_nodes, *vertex_count);
+
+	char size_buf[16];
+	LOG("Введите количество вершин для генерации (2-26): ");
+	if (!fgets(size_buf, sizeof(size_buf), stdin)) return 1;
+
+	char* endptr;
+	errno = 0;
+	long size_g = strtol(size_buf, &endptr, 10);
+
+	if (endptr == size_buf || (*endptr != '\n' && *endptr != '\0') || errno == ERANGE)
+	{
+		fprintf(stderr, "Ошибка: Неверный ввод. Введите число.\n");
+		return 1;
+	}
+
+	if (size_g < 2 || size_g > 26)
+	{
+		fprintf(stderr, "Ошибка: Количество вершин должно быть от 2 до 26.\n");
+		return 10;
+	}
+
+	*vertex_count = (size_t)size_g;
+
+
+	*p_unique_nodes = (char**)malloc(sizeof(char*) * (*vertex_count));
+	if (!*p_unique_nodes) { perror("malloc failed"); return 1; }
+	for (size_t i = 0; i < *vertex_count; ++i)
+	{
+		char name[2] = {(char)('A' + i), '\0'};
+		(*p_unique_nodes)[i] = strdup(name);
+		if (!(*p_unique_nodes)[i]) { perror("strdup failed"); return 1; }
+	}
+
+
+	size_t connecting_edges = *vertex_count - 1;
+	size_t extra_edges = *vertex_count / 2;
+	*edge_count = connecting_edges + extra_edges;
+
+	*p_weighted_graph = (struct NODE**)malloc(sizeof(struct NODE*) * (*edge_count));
+	if (!*p_weighted_graph) { perror("malloc failed"); return 1; }
+
+	size_t current_edge_idx = 0;
+
+
+	for (size_t i = 0; i < connecting_edges; ++i)
+	{
+		(*p_weighted_graph)[current_edge_idx] = (struct NODE*)malloc(sizeof(struct NODE));
+		(*p_weighted_graph)[current_edge_idx]->gen_node_name = strdup((*p_unique_nodes)[i]);
+		(*p_weighted_graph)[current_edge_idx]->other_node_name = strdup((*p_unique_nodes)[i + 1]);
+		(*p_weighted_graph)[current_edge_idx]->weight = (rand() % 50) + 1; // Вес от 1 до 50
+		current_edge_idx++;
+	}
+
+
+	for (size_t i = 0; i < extra_edges; ++i)
+	{
+		size_t v1_idx, v2_idx;
+		do
+		{
+			v1_idx = rand() % *vertex_count;
+			v2_idx = rand() % *vertex_count;
+		} while (v1_idx == v2_idx);
+
+		(*p_weighted_graph)[current_edge_idx] = (struct NODE*)malloc(sizeof(struct NODE));
+		(*p_weighted_graph)[current_edge_idx]->gen_node_name = strdup((*p_unique_nodes)[v1_idx]);
+		(*p_weighted_graph)[current_edge_idx]->other_node_name = strdup((*p_unique_nodes)[v2_idx]);
+		(*p_weighted_graph)[current_edge_idx]->weight = (rand() % 50) + 1;
+		current_edge_idx++;
+	}
+
+	LOG("\nСгенерирован граф с %zu вершинами и %zu ребрами.\n", *vertex_count, *edge_count);
+	print_graph_info(*p_weighted_graph, *edge_count, *p_unique_nodes, *vertex_count);
+	return 0;
+}
+
+
+
+int get_node_index(const char* name, char** unique_nodes, size_t vertex_count)
+{
+	for (size_t i = 0; i < vertex_count; i++)
+	{
+		if (strcmp(name, unique_nodes[i]) == 0)
+		{
+			return i;
+		}
+	}
+	return -1;
+}
+
+
+int find_min_distance_node(int distances[], bool visited[], size_t vertex_count)
+{
+	int min_dist = INT_MAX;
+	int min_index = -1;
+
+	for (size_t v = 0; v < vertex_count; v++)
+	{
+		if (!visited[v] && distances[v] <= min_dist)
+		{
+			min_dist = distances[v];
+			min_index = v;
+		}
+	}
+	return min_index;
+}
+
+
+void print_path(int parent[], int j, char** unique_nodes)
+{
+	if (parent[j] == -1)
+	{
+		LOG("%s", unique_nodes[j]);
+		return;
+	}
+	print_path(parent, parent[j], unique_nodes);
+	LOG(" -> %s", unique_nodes[j]);
+}
+
+
+
+
+
+
+
 
 
 int main(int argc, char** argv)
@@ -256,7 +384,18 @@ int main(int argc, char** argv)
 		{
 			choice_one(&weighted_graph, &unique_nodes, &edge_count, &vertex_count);
 		}
-
+		else if (strncmp(choice, "2", 1) == 0)
+		{
+			int res = generate_random_graph(&weighted_graph, &unique_nodes, &edge_count, &vertex_count);
+			if (res != 0)
+			{
+				LOG("Во время генерации произошла ошибка.\n");
+			}
+		}
+		else if (strncmp(choice, "3", 1) == 0) // Новый обработчик
+		{
+			algorithm_dijkstra(weighted_graph, edge_count, unique_nodes, vertex_count);
+		}
 		else if (strncmp(choice, "4", 1) == 0)
 		{
 			LOG("Выход...\n");
