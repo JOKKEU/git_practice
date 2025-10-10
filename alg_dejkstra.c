@@ -351,7 +351,115 @@ void print_path(int parent[], int j, char** unique_nodes)
 
 
 
+void algorithm_dijkstra(struct NODE** graph, size_t edge_count, char** unique_nodes, size_t vertex_count)
+{
+	if (!graph)
+	{
+		LOG("Ошибка: Граф не загружен. Сначала сгенерируйте или загрузите граф.\n");
+		return;
+	}
 
+	// 1. Запрашиваем у пользователя начальную и конечную вершины
+	char start_node_name[64], end_node_name[64];
+	LOG("Список доступных вершин:\n");
+	for (size_t i = 0; i < vertex_count; i++)
+	{
+		LOG("%s ", unique_nodes[i]);
+	}
+	LOG("\nВведите имя начальной вершины: ");
+	scanf("%63s", start_node_name);
+	LOG("Введите имя конечной вершины: ");
+	scanf("%63s", end_node_name);
+
+	while (getchar() != '\n');
+
+
+	int start_idx = get_node_index(start_node_name, unique_nodes, vertex_count);
+	int end_idx = get_node_index(end_node_name, unique_nodes, vertex_count);
+
+	if (start_idx == -1 || end_idx == -1)
+	{
+		LOG("Ошибка: Одна или обе вершины не найдены в графе.\n");
+		return;
+	}
+
+	// 2. Создаём матрицу смежности из списка рёбер
+	int** adj_matrix = (int**)malloc(vertex_count * sizeof(int*));
+	for (size_t i = 0; i < vertex_count; i++)
+	{
+		adj_matrix[i] = (int*)calloc(vertex_count, sizeof(int)); // calloc инициализирует нулями
+	}
+
+	for (size_t i = 0; i < edge_count; i++)
+	{
+		int u = get_node_index(graph[i]->gen_node_name, unique_nodes, vertex_count);
+		int v = get_node_index(graph[i]->other_node_name, unique_nodes, vertex_count);
+		if (u != -1 && v != -1) {
+			adj_matrix[u][v] = graph[i]->weight;
+
+		}
+	}
+
+	int* distances = (int*)malloc(vertex_count * sizeof(int));
+	bool* visited = (bool*)malloc(vertex_count * sizeof(bool));
+	int* parent = (int*)malloc(vertex_count * sizeof(int));
+
+	for (size_t i = 0; i < vertex_count; i++)
+	{
+		distances[i] = INT_MAX;
+		visited[i] = false;
+		parent[i] = -1;
+	}
+	distances[start_idx] = 0;
+
+	// 4. Основной цикл алгоритма
+	for (size_t count = 0; count < vertex_count - 1; count++)
+	{
+		int u = find_min_distance_node(distances, visited, vertex_count);
+		if (u == -1)
+		{ // Если оставшиеся вершины недостижимы
+			break;
+		}
+
+		visited[u] = true;
+
+		// Обновляем расстояния до смежных вершин
+		for (size_t v = 0; v < vertex_count; v++)
+		{
+			if (!visited[v] && adj_matrix[u][v] > 0 && distances[u] != INT_MAX &&
+				distances[u] + adj_matrix[u][v] < distances[v])
+			{
+				distances[v] = distances[u] + adj_matrix[u][v];
+				parent[v] = u;
+			}
+		}
+	}
+
+	// 5. Вывод результата
+	LOG("\n--- Результат работы алгоритма Дейкстры ---\n");
+	if (distances[end_idx] == INT_MAX)
+	{
+		LOG("Путь от вершины %s до %s не существует.\n", start_node_name, end_node_name);
+	}
+	else
+	{
+		LOG("Кратчайшее расстояние от %s до %s: %d\n", start_node_name, end_node_name, distances[end_idx]);
+		LOG("Путь: ");
+		print_path(parent, end_idx, unique_nodes);
+		LOG("\n");
+	}
+	LOG("------------------------------------------\n");
+
+	// 6. Очистка памяти
+	for (size_t i = 0; i < vertex_count; i++)
+	{
+		free(adj_matrix[i]);
+	}
+	free(adj_matrix);
+	free(distances);
+	free(visited);
+	free(parent);
+}
 
 
 
